@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 require 'rubygems'
 require 'find'
 require 'pathname'
 require 'nokogiri'
 require 'vortex_client'
 require 'json'
+# require 'erb'
 $LOAD_PATH.unshift Pathname.new(File.expand_path( __FILE__ )).parent.to_s
 require 'vortex_migration_report'
 
@@ -25,14 +27,6 @@ class StaticSiteMigration
     @errors_logfile = 'vortex_migrarition_errors_log.txt'
     @dirty_uploads_logfile = false
     @dirty_errors_logfile = false
-  end
-
-
-  def zzzz_print_migration_report()
-    puts "Migration report"
-    puts
-    # uploads_log = open(@logfile).read
-    # TODO Complete this...
   end
 
 
@@ -185,6 +179,7 @@ class StaticSiteMigration
     puts "___________________________________________________"
   end
 
+
   # Find all files and migrate
   def start
     Find.find(@html_dir) do |path|
@@ -198,6 +193,73 @@ class StaticSiteMigration
         end
       end
     end
+  end
+
+  # Create folders on webdav server for reports and unused files
+  def create_reports_folder
+    foldername = @vortex_path + 'nettpublisering/'
+    if(not(@vortex.exists?(foldername)))then
+      puts "Creating report folder : " + foldername
+      puts "Creating folder : " + foldername
+      @vortex.create_path(foldername)
+      @vortex.proppatch(foldername,
+              '<hidden xmlns="http://www.uio.no/navigation">true</hidden>')
+      @vortex.proppatch(foldername,
+              '<v:userTitle xmlns:v="vrtx">Nettpublisering</v:userTitle>')
+      @vortex.proppatch(foldername,
+              '<v:navigationTitle xmlns:v="vrtx">Nettpublisering</v:navigationTitle>')
+      @vortex.proppatch(foldername,
+              '<v:introduction xmlns:v="vrtx">&lt;p&gt;Logg inn for &amp;aring; se de ulike ' +
+              'rapportene eller filer som ikke er tatt med i migrering.&lt;/p&gt;&#13;</v:introduction>')
+    end
+
+    foldername = @vortex_path + 'nettpublisering/rapporter/'
+    if(not(@vortex.exists?(foldername)))then
+      puts "Creating report folder : " + foldername
+      @vortex.create_path(foldername)
+      @vortex.proppatch(foldername,
+              '<v:userTitle xmlns:v="vrtx">Rapporter for arbeidet med kvalitet på nett</v:userTitle>')
+      @vortex.proppatch(foldername,
+              '<v:navigationTitle xmlns:v="vrtx">Rapporter</v:navigationTitle>')
+      @vortex.proppatch(foldername,
+              '<v:introduction xmlns:v="vrtx">&lt;p&gt;Logg inn for &amp;aring; se de ulike ' +
+              'rapportene eller filer som ikke er tatt med i migrering.&lt;/p&gt;&#13;</v:introduction>')
+    end
+
+    foldername = @vortex_path + 'nettpublisering/ikke_migrert_innhold/'
+    if(not(@vortex.exists?(foldername)))then
+      puts "Creating folder for unused content: " + foldername
+      @vortex.create_path(foldername)
+      @vortex.proppatch(foldername,
+              '<v:navigationTitle xmlns:v="vrtx">Ikke migrert innhold</v:navigationTitle>')
+      @vortex.proppatch(foldername,
+              '<v:userTitle xmlns:v="vrtx">Ikke migrert innhold</v:userTitle>')
+      @vortex.proppatch(foldername,
+              '<v:introduction xmlns:v="vrtx">&lt;p&gt;Logg inn for &amp;aring; se de ulike ' +
+              'filene som ikke er tatt med i migrering.&lt;/p&gt;&#13;</v:introduction>')
+    end
+  end
+
+  # Transfer unused files to vortex
+  def transfer_unused_files
+    report_data = collect_report_data
+    unpublished_files = report_data['unpublished_files']
+    create_reports_folder
+
+    foldername = @vortex_path + 'nettpublisering/ikke_migrert_innhold/'
+    unpublished_files.each do |filename|
+      local_filename = (@html_path + filename).to_s
+      remote_filename = foldername + filename
+      remote_path = Pathname.new(remote_filename).parent.to_s
+      content = open(local_filename).read
+      basename = Pathname.new(remote_filename).basename.to_s
+      basename = URI.encode(basename)
+
+      puts "Transfering unused file to server: " + remote_path.downcase + '/' + basename
+      @vortex.create_path(remote_path)
+      @vortex.put_string(remote_path.downcase + '/' + basename, content)
+    end
+
   end
 
 end

@@ -44,6 +44,52 @@ class StaticSiteMigration
 
   end
 
+  def generate_migration_html_report
+    filename = @vortex_path + 'nettpublisering/rapporter/migration_report.html'
+    puts "Publishing migration report : " + filename
+
+    report_data = collect_report_data
+    uploaded_files = report_data['uploaded_files']
+    local_files = report_data['local_files']
+    extensions = report_data['extensions']
+    file_type_counts = report_data['file_type_counts']
+    unpublished_files = report_data['unpublished_files']
+    unpublished_files_extensions = report_data['unpublished_files_extensions']
+
+    body = "<p>Dokumenter lagt i Vortex på #{@url.gsub('www-dav','www').gsub(/^https/,'http')}.</p>\n"
+    body += "<table>\n"
+    total_type_count = 0
+    file_type_counts.keys.each do |filetype|
+      type_count = file_type_counts[filetype]
+      total_type_count = total_type_count + type_count
+      body += "  <tr>\n"
+      body += "    <td>#{filetype.capitalize}s</td><td align=\"right\">#{type_count.to_s}</td>\n"
+      body += "  </tr>\n"
+    end
+    body += "<tr>\n    <td><b>Totalt</b></td><td align=\"right\"><b>#{total_type_count.to_s}</b></td>\n  </tr>\n</table>\n"
+
+    body += "<p>\nFiler lagt i Vortex:#{generate_file_count_size_html(extensions)}\n"
+    body += "</p>"
+
+
+    body += "<p>\nIkke migrert innhold lagt i folderen <a href=\"../ikke_migrert_innhold\">ikke migrert innhold</a>;\n"
+    body += generate_file_count_size_html(unpublished_files_extensions)
+    body += "</p>"
+
+    t = Time.now
+    data = {
+      "resourcetype" => "structured-article",
+      "properties" =>    {
+        "title" => "Migreringsrapport",
+        "content" => body,
+        "introduction" => "Nettstedet ble migrert fra et statisk nettsted " + t.strftime("%d.%m.%Y kl. %H:%m") + ".",
+        "hideAdditionalContentEvent" => "true"
+      }
+    }
+    @vortex.put_string(filename, data.to_json)
+    @vortex.proppatch(filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
+
+  end
 
   # Parse published files log:
   def parse_logfile(logfile)
@@ -54,6 +100,37 @@ class StaticSiteMigration
       uploaded_files[local_filename] = [type, server_filename.sub(@vortex_path,'')]
     end
     return uploaded_files
+  end
+
+  def generate_file_count_size_html(filelist)
+    html = "  <table>\n"
+    total_extension_type_count = 0
+    total_file_size = 0
+    filelist.keys.each do |extension|
+      extension_type_count = filelist[extension][0].to_i
+      total_extension_type_count = total_extension_type_count + extension_type_count
+      file_size = filelist[extension][1]
+      total_file_size = total_file_size + file_size
+      file_size = readable_file_size(file_size, 2)
+
+      extension_name = extension
+      if(extension_name.size > 6)
+        string_start = extension.size-4
+        start_end = extension.size
+        extension_name = "..." + extension[string_start..start_end]
+      end
+      html = html + "    <tr>\n"
+      html = html + "      <td>" + extension_name+"</td><td align=\"right\">"+
+        extension_type_count.to_s+"</td><td align=\"right\">"+file_size.to_s + "</td>\n"
+      html = html + "    </tr>\n"
+    end
+    total_file_size = readable_file_size(total_file_size, 2)
+    html = html + "    <tr >\n"
+    html = html + "      <td><b>Totalt</b></td><td><b>" +  total_extension_type_count.to_s + "</b></td>" +
+      "<td align=\"right\"><b>" + total_file_size.to_s + "</b></td>\n"
+    html = html + "    </tr>\n"
+    html = html + "  </table>\n"
+    return html
   end
 
   def print_file_count_size(filelist)

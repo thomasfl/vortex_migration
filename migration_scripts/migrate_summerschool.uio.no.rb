@@ -51,7 +51,9 @@ if $0 == __FILE__
   migration.errors_logfile = 'summerschool_migration_error_log.txt'
   migration.debug = true
 
+  # migration.transfer_unused_files
   migration.generate_report
+  migration.generate_migration_html_report
 
 
   # migration.migrate_article('courses/index.html')
