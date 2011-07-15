@@ -252,6 +252,8 @@ file:students/pdf/fronter.pdf:courses/fronter.pdf
 article:courses/index.html:courses/index.html
 article:courses/exams.html:courses/exams.html
 file:courses/images/eilc.jpg:courses/eilc.jpg
+file:courses/pdf/eilc_handbook.pdf:courses/eilc_handbook.pdf
+file:courses/pdf/eilc_webtips.pdf:courses/eilc_webtips.pdf
 article:courses/eilc.html:courses/eilc.html
 article:courses/credits.html:courses/credits.html
 article:courses/cite.html:courses/cite.html
@@ -297,6 +299,7 @@ file:courses/images/1320.jpg:courses/1320.jpg
 file:courses/pdf/1320_syllabus.pdf:courses/1320_syllabus.pdf
 article:courses/1320.html:courses/1320.html
 file:courses/images/1143.jpg:courses/1143.jpg
+file:courses/pdf/1143_syllabus.pdf:courses/1143_syllabus.pdf
 article:courses/1143.html:courses/1143.html
 file:courses/images/1142.jpg:courses/1142.jpg
 file:courses/pdf/1142_syllabus.pdf:courses/1142_syllabus.pdf

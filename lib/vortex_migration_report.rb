@@ -56,7 +56,8 @@ class StaticSiteMigration
     unpublished_files = report_data['unpublished_files']
     unpublished_files_extensions = report_data['unpublished_files_extensions']
 
-    body = "<p>Dokumenter lagt i Vortex på #{@url.gsub('www-dav','www').gsub(/^https/,'http')}.</p>\n"
+    body = "<h2>Migrert innhold</h2>\n"
+    body += "<p>Dokumenter lagt i Vortex på #{@url.gsub('www-dav','www').gsub(/^https/,'http')}.</p>\n"
     body += "<table>\n"
     total_type_count = 0
     file_type_counts.keys.each do |filetype|
@@ -66,15 +67,26 @@ class StaticSiteMigration
       body += "    <td>#{filetype.capitalize}s</td><td align=\"right\">#{type_count.to_s}</td>\n"
       body += "  </tr>\n"
     end
-    body += "<tr>\n    <td><b>Totalt</b></td><td align=\"right\"><b>#{total_type_count.to_s}</b></td>\n  </tr>\n</table>\n"
+    body += "<tr>\n    <td><b>Total</b></td><td align=\"right\"><b>#{total_type_count.to_s}</b></td>\n  </tr>\n</table>\n"
 
     body += "<p>\nFiler lagt i Vortex:#{generate_file_count_size_html(extensions)}\n"
     body += "</p>"
 
-
-    body += "<p>\nIkke migrert innhold lagt i folderen <a href=\"../ikke_migrert_innhold\">ikke migrert innhold</a>;\n"
+    body += "<h2>Ikke migrert innhold</h2>\n"
+    body += "<p>\nFiler lagt i folderen <a href=\"../ikke_migrert_innhold\">ikke migrert innhold</a>;\n"
     body += generate_file_count_size_html(unpublished_files_extensions)
     body += "</p>"
+
+    body += "<p>Ikke migrerte filer:\n  <ul>\n"
+    unpublished_files.each do |unpublished_file|
+      file_path = URI.parse(@url).path + "nettpublisering/ikke_migrert_innhold/" +
+        Pathname.new(unpublished_file).parent.to_s.downcase + '/' +
+        Pathname.new(unpublished_file).basename.to_s
+
+      body += "    <li><a href=\"" +  file_path +  "\">" + unpublished_file + "</li>\n"
+    end
+    body += "  </ul>\n</p>"
+
 
     t = Time.now
     data = {
@@ -126,7 +138,7 @@ class StaticSiteMigration
     end
     total_file_size = readable_file_size(total_file_size, 2)
     html = html + "    <tr >\n"
-    html = html + "      <td><b>Totalt</b></td><td><b>" +  total_extension_type_count.to_s + "</b></td>" +
+    html = html + "      <td><b>Total</b></td><td><b>" +  total_extension_type_count.to_s + "</b></td>" +
       "<td align=\"right\"><b>" + total_file_size.to_s + "</b></td>\n"
     html = html + "    </tr>\n"
     html = html + "  </table>\n"

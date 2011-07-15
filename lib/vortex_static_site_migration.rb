@@ -41,7 +41,6 @@ class StaticSiteMigration
 
     File.open(@logfile, 'a') do |f|
       f.write( "#{filetype}:#{local_pathname}:#{pathname}\n" )
-      puts "DEBUG: #{filetype}:#{local_pathname}:#{pathname}\n"
     end
 
     @dirty_uploads_logfile = true
@@ -135,7 +134,7 @@ class StaticSiteMigration
   end
 
   # Download images and other files, update html and publish an article
-  def publish_article(html_filename, title, introduction, body)
+  def publish_article(html_filename, title, introduction, related, body)
     destination_filename = @vortex_path + html_filename.sub(@html_dir,'')
     destination_path = Pathname.new(destination_filename).parent.to_s
     @vortex.create_path(destination_path)
@@ -150,9 +149,20 @@ class StaticSiteMigration
         "title" => title,
         "content" => body,
         "introduction" => introduction,
-        "hideAdditionalContentEvent" => "true"
+        "hideAdditionalContent" => "true"
       }
     }
+
+    if(related)then
+      related = migrate_files(related, destination_path, html_filename)
+      related = make_links_relative(related, destination_path, html_filename)
+
+      data["properties"]["hideAdditionalContent"] = "false"
+      data["properties"]["related-content"] = related
+    end
+
+    # require 'pp'
+    # pp data
 
     @vortex.put_string(destination_filename, data.to_json)
     log_upload('article', html_filename.sub(@html_path,''), destination_filename.sub(@vortex_path,''))
@@ -171,14 +181,29 @@ class StaticSiteMigration
     @doc = Nokogiri::HTML(content)
     title = extract_title
     introduction = extract_introduction
+    begin
+      related = extract_related_content
+    rescue
+      related = nil
+    end
     body = extract_body
+
     puts "Title     : " + title
     puts "Intro     : " + introduction
-    # puts "Body      : " + body
-    publish_article(html_filename, title, introduction, body)
-    puts "___________________________________________________"
+    puts "Related   : " + related.to_s[0..40]
+    puts "Body      : " + body.to_s[0..140]
+
+    publish_article(html_filename, title, introduction, related, body)
+    puts "___________________________________________________________"
   end
 
+  # Run migration (eg. main method)
+  def run
+    start
+    transfer_unused_files
+    generate_report
+    generate_migration_html_report
+  end
 
   # Find all files and migrate
   def start

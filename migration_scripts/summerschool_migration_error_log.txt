@@ -1,3 +1,4 @@
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/test
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/images/map.gif
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/test
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/test
@@ -6,6 +7,17 @@ file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/studen
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students/VisaInfoLetter.pdf
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students/pdf/PAB_ENG.pdf
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
+file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
 file-not-found:/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/students
