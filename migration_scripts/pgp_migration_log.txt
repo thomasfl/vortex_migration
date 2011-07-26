@@ -1,1 +1,2 @@
-article:index.php?option=com_content&task=view&id=519&Itemid=32.html:index.php?option=com_content&task=view&id=519&Itemid=32.html
+file:http://varme.uio.no/pgp/images/stories/research/else.jpg:research/people/else.jpg
+article:index.php?option=com_content&task=view&id=98&Itemid=32.html:research/people/else-ragnhild-neumann.html

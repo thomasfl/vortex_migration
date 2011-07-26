@@ -76,10 +76,11 @@ end
 
 if __FILE__ == $0 then
   migration = SummerSchoolMigration.new('/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/',
-                                        'https://www-dav.mn.uio.no/konv/ctcc/pgp/')
+                                        'https://www-dav.mn.uio.no/konv/pgp/')
   migration.logfile        = 'pgp_migration_log.txt'
   migration.errors_logfile = 'pgp_migration_error_log.txt'
   migration.debug = true
+  # migration.encoding = 'ISO-8859-1'
   # migration.dry_run = true
 
   migration.migrate_article("index.php?option=com_content&task=view&id=519&Itemid=32.html")
