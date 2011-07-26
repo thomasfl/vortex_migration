@@ -4,6 +4,14 @@ Utitilities for importing static web sites in to the Vortex Content Management S
 
 == Example
 
+Create a mirror of the static site with wget.
+
+'''bash
+  $ wget --mirror –p --html-extension –-convert-links --force-directories  -e robots=off -P . http://www.summerschool.uio.no/
+'''
+
+Use the example scripts that subclasses StaticSiteMigration as documentation.
+
 '''ruby
   puts "Hello"
 '''

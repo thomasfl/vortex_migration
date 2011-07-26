@@ -5,13 +5,14 @@ require 'pathname'
 require 'nokogiri'
 require 'vortex_client'
 require 'json'
+require 'open-uri'
 # require 'erb'
 $LOAD_PATH.unshift Pathname.new(File.expand_path( __FILE__ )).parent.to_s
 require 'vortex_migration_report'
 
 class StaticSiteMigration
 
-  attr_accessor :debug, :logfile, :errors_logfile
+  attr_accessor :debug, :logfile, :errors_logfile, :dry_run
 
   def initialize(html_dir, url)
     if(html_dir[/^\./])then
@@ -27,8 +28,28 @@ class StaticSiteMigration
     @errors_logfile = 'vortex_migrarition_errors_log.txt'
     @dirty_uploads_logfile = false
     @dirty_errors_logfile = false
+    @dry_run = false
+    @debug = true
   end
 
+  #-----------------------------------------
+  #
+  # Methods that may be overloaded
+  #
+  #-----------------------------------------
+
+  # Return path and filename
+  def extract_filename
+  end
+
+  def extract_related_content
+  end
+
+  #--------------------------------------
+  #
+  # Methods not to be overloaded
+  #
+  #--------------------------------------
 
   # Log uploads
   def log_upload(filetype,local_pathname,pathname)
@@ -161,14 +182,13 @@ class StaticSiteMigration
       data["properties"]["related-content"] = related
     end
 
-    # require 'pp'
-    # pp data
-
     @vortex.put_string(destination_filename, data.to_json)
     log_upload('article', html_filename.sub(@html_path,''), destination_filename.sub(@vortex_path,''))
 
     @vortex.proppatch(destination_filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
-    puts "Published: " + destination_filename
+    if(@debug)
+      puts "Published: " + destination_filename
+    end
   end
 
 
@@ -176,7 +196,10 @@ class StaticSiteMigration
     if(html_filename[/^[^\/]/] )then
       html_filename = (@html_path + html_filename).to_s
     end
-    puts "Migrating : " + html_filename
+
+    if(@debug)
+      puts "Migrating : " + html_filename
+    end
     content = open(html_filename).read
     @doc = Nokogiri::HTML(content)
     title = extract_title
@@ -188,13 +211,22 @@ class StaticSiteMigration
     end
     body = extract_body
 
-    puts "Title     : " + title
-    puts "Intro     : " + introduction
-    puts "Related   : " + related.to_s[0..40]
-    puts "Body      : " + body.to_s[0..140]
+    new_filename = extract_filename
 
-    publish_article(html_filename, title, introduction, related, body)
-    puts "___________________________________________________________"
+    if(@debug)
+      puts "Title     : " + title.to_s
+      puts "Intro     : " + introduction.to_s[0..140]
+      puts "Related   : " + related.to_s[0..140]
+      puts "Body      : " + body.to_s[0..140]
+      puts "Filename  : " + new_filename.to_s
+    end
+
+    if(not(@dry_run))then
+      publish_article(html_filename, title, introduction, related, body)
+    end
+    if(@debug)
+      puts "___________________________________________________________"
+    end
   end
 
   # Run migration (eg. main method)
