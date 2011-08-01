@@ -5,6 +5,10 @@ Utitilities for importing static web sites in to the Vortex Content Management S
 
 ## Install ##
 
+```bash
+  $ git clone git@github.com:thomasfl/vortex_migration.git
+```
+
 ## Example ##
 
 First create a local mirror of the website with wget. This should work for most sites, including sites
@@ -13,7 +17,8 @@ made with Content Management like WordPress, Joomla, Plone or Drupal.
 ```bash
   $ wget --mirror –p --html-extension –-convert-links --force-directories  -e robots=off -P . http://www.summerschool.uio.no/
 ```
-Create a subclasses of StaticSiteMigration as documentation.
+
+Then create a subclasses of StaticSiteMigration as documentation.
 
 ```ruby
 require '../lib/vortex_static_site_migration'
@@ -52,3 +57,5 @@ if __FILE__ == $0 then
 end
 
 ```
+
+Now just run you script. Use debug, dry_run and migrate_article to debug your migration.
