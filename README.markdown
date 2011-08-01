@@ -39,11 +39,13 @@ class SummerSchoolMigration < StaticSiteMigration
 end
 
 if __FILE__ == $0 then
-  migration = SummerSchoolMigration.new('/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/',
-                                        'https://www-dav.mn.uio.no/konv/pgp/')
-  migration.logfile        = 'pgp_migration_log.txt'
-  migration.errors_logfile = 'pgp_migration_error_log.txt'
-  migration.debug = true
+  src_dir = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
+  webdav_destination = 'https://www-dav.mn.uio.no/konv/pgp/'
+  migration = SummerSchoolMigration.new(src_dir,webdav_destination)
+  # Optional settings:
+  # migration.logfile        = 'pgp_migration_log.txt'
+  # migration.errors_logfile = 'pgp_migration_error_log.txt'
+  # migration.debug = true
   # migration.dry_run = true
   # migration.migrate_article("index.php?option=com_content&task=view&id=519&Itemid=32.html")
   migration.run
