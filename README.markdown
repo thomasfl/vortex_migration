@@ -13,8 +13,40 @@ made with Content Management like WordPress, Joomla, Plone or Drupal.
 ```bash
   $ wget --mirror –p --html-extension –-convert-links --force-directories  -e robots=off -P . http://www.summerschool.uio.no/
 ```
-Use the example scripts that subclasses StaticSiteMigration as documentation.
+Create a subclasses of StaticSiteMigration as documentation.
 
 ```ruby
-  puts "Hello"
+require '../lib/vortex_static_site_migration'
+
+class SummerSchoolMigration < StaticSiteMigration
+
+  def is_article?(filename)
+    filename[/index.php.*\.html$/]
+  end
+
+  def extract_title
+    @doc.css(".contentheading").first.text.strip
+  end
+
+  def extract_introduction
+    @doc.css(".content").children[0..1].to_s.strip
+  end
+
+  def extract_body
+    return @doc.css(".content").children[2..1000].to_s.strip
+  end
+
+end
+
+if __FILE__ == $0 then
+  migration = SummerSchoolMigration.new('/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/',
+                                        'https://www-dav.mn.uio.no/konv/pgp/')
+  migration.logfile        = 'pgp_migration_log.txt'
+  migration.errors_logfile = 'pgp_migration_error_log.txt'
+  migration.debug = true
+  # migration.dry_run = true
+  # migration.migrate_article("index.php?option=com_content&task=view&id=519&Itemid=32.html")
+  migration.run
+end
+
 ```
