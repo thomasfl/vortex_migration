@@ -6,13 +6,14 @@ require 'nokogiri'
 require 'vortex_client'
 require 'json'
 require 'open-uri'
+require 'iconv'
 require 'pry' # binding.pry => escapes into irb like shell
 $LOAD_PATH.unshift Pathname.new(File.expand_path( __FILE__ )).parent.to_s
 require 'vortex_migration_report'
 
 class StaticSiteMigration
 
-  attr_accessor :debug, :logfile, :errors_logfile, :dry_run, :encoding
+  attr_accessor :debug, :logfile, :errors_logfile, :dry_run, :encoding, :vortex
 
   def initialize(html_dir, url)
     if(html_dir[/^\./])then
@@ -30,6 +31,8 @@ class StaticSiteMigration
     @dirty_errors_logfile = false
     @dry_run = false
     @debug = true
+
+    setup
   end
 
   #-----------------------------------------
@@ -42,7 +45,16 @@ class StaticSiteMigration
   def extract_filename
   end
 
+  # Return information typically found in margin or bottom of page
   def extract_related_content
+  end
+
+  # Will be run before migration starts
+  def setup
+  end
+
+  # Will be run before publishing html to vortex
+  def pre_publish(destination_filename, data)
   end
 
   #--------------------------------------
@@ -126,13 +138,16 @@ class StaticSiteMigration
     doc.css("img").each do |image|
       file_uri = image.attr("src")
       if(file_uri[/^http/])then
-
         upload_file(file_uri, html_filename, destination_path)
-        basename = Pathname.new(file_uri).basename.to_s
-        image.set_attribute("src",basename)
       else
-        throw "File not found: " + file_uri
+        if(File.exists?(@html_path.to_s + file_uri))
+          upload_file(@html_path.to_s + file_uri, html_filename, destination_path)
+        else
+          throw "File not found: " + file_uri
+        end
       end
+      basename = Pathname.new(file_uri).basename.to_s
+      image.set_attribute("src",basename)
     end
 
     # Upload files, everything that's not a document, to vortex server:
@@ -183,6 +198,12 @@ class StaticSiteMigration
     end
   end
 
+  # Convert from ISO-8859-1 to UTF-8
+  def iso2utf(string)
+    converter = Iconv.new('UTF-8', 'ISO-8859-1')
+    return converter.iconv(string)
+  end
+
   # Download images and other files, update html and publish an article
   def publish_article(html_filename, title, introduction, related, body, new_filename)
     if(new_filename == "")
@@ -194,15 +215,28 @@ class StaticSiteMigration
       destination_path = Pathname.new(destination_filename).parent.to_s
     end
 
-    # binding.pry
-
     @vortex.create_path(destination_path)
     @vortex.cd(destination_path) # Set path so images, and other files, are placed correctly
 
+    if(@encoding and @encoding[/^iso/i])
+      introduction = iso2utf(introduction)
+      body = iso2utf(body)
+    end
+
+    # Download and upload images etc. and make links relative.
     introduction = migrate_files(introduction, destination_path, html_filename)
     introduction = make_links_relative(introduction, destination_path, html_filename)
     body = migrate_files(body, destination_path, html_filename)
     body = make_links_relative(body, destination_path, html_filename)
+
+    # Extract images from introduction and set as article image
+    doc = Nokogiri::HTML(introduction)
+    picture = nil
+    if(doc.css("img").first)
+      picture = doc.css("img").first.attr("src")
+      doc.css("img").remove
+      introduction = doc.css("body").inner_html
+    end
 
     data = {
       "resourcetype" => "structured-article",
@@ -214,6 +248,10 @@ class StaticSiteMigration
       }
     }
 
+    if(picture)
+      data["properties"]["picture"] = picture
+    end
+
     if(related)then
       related = migrate_files(related, destination_path, html_filename)
       related = make_links_relative(related, destination_path, html_filename)
@@ -221,6 +259,19 @@ class StaticSiteMigration
       data["properties"]["hideAdditionalContent"] = "false"
       data["properties"]["related-content"] = related
     end
+
+    # Avoid files beeing rewriten by adding a number at end for filename: index.html => index_2.html
+    if(@vortex.exists?(destination_filename))
+      index = 1
+      new_filename = destination_filename.gsub(".html", "_#{index}.html")
+      while(@vortex.exists?( new_filename ))
+        index = index + 1
+        new_filename = destination_filename.gsub(".html", "_#{index}.html")
+      end
+      destination_filename = new_filename
+    end
+
+    pre_publish(destination_filename, data)
 
     @vortex.put_string(destination_filename, data.to_json)
     log_upload('article', html_filename.sub(@html_path,''), destination_filename.sub(@vortex_path,''))
@@ -231,7 +282,6 @@ class StaticSiteMigration
     end
   end
 
-
   def migrate_article(html_filename)
     if(html_filename[/^[^\/]/] )then
       html_filename = (@html_path + html_filename).to_s
@@ -241,13 +291,6 @@ class StaticSiteMigration
       puts "Migrating : " + html_filename
     end
     content = open(html_filename).read
-
-    require 'iconv'
-    # We want to convert from ISO-8859-1 to UTF-8
-    converter = Iconv.new('UTF-8', 'ISO-8859-1')
-
-    # content = Iconv.conv('utf-8', 'ISO-8859-1', content)
-    content = converter.iconv(content)
 
     if(@encoding)
       @doc = Nokogiri::HTML(content,nil, @encoding)
@@ -268,7 +311,7 @@ class StaticSiteMigration
 
     if(@debug)
       puts "Title     : " + title.to_s
-      puts "Intro     : " + introduction.to_s[0..140]
+      puts "Intro     : " + introduction.to_s #[0..140]
       puts "Related   : " + related.to_s[0..140]
       puts "Body      : " + body.to_s[0..140]
       puts "Filename  : " + new_filename
