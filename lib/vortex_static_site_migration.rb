@@ -13,7 +13,7 @@ require 'vortex_migration_report'
 
 class StaticSiteMigration
 
-  attr_accessor :debug, :logfile, :errors_logfile, :dry_run, :encoding, :vortex
+  attr_accessor :debug, :logfile, :errors_logfile, :dry_run, :encoding, :vortex, :html_dir
 
   def initialize(html_dir, url)
     if(html_dir[/^\./])then

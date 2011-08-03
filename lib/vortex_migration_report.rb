@@ -98,6 +98,11 @@ class StaticSiteMigration
         "hideAdditionalContentEvent" => "true"
       }
     }
+
+    report_path = Pathname.new(filename).parent.to_s
+    if(not(@vortex.exists?(report_path)))
+      @vortex.create_path(report_path)
+    end
     @vortex.put_string(filename, data.to_json)
     @vortex.proppatch(filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
 
@@ -204,11 +209,21 @@ class StaticSiteMigration
     # Count file extensions and calculate filesize
     extensions = { }
     uploaded_files.each do |filename, info|
+
+      # TODO Remove temporarliy hack for PGP:
+      if(filename == "http")
+        next
+      end
+      filename = filename.gsub("http://varme.uio.no/pgp/","")
+
       extension = filename[/([^\.]*)$/].downcase
       extensions[extension] = [] if(not(extensions[extension]))
       count = extensions[extension][0].to_i
       filesize = extensions[extension][1].to_i
       extensions[extension][0] = count + 1
+      if(not(File.exists?(@html_path + filename)))
+        throw "Unknown file : '" + @html_path + filename + "' =>" + info.to_s
+      end
       extensions[extension][1] = filesize + File.size(@html_path + filename)
     end
     report_data['extensions'] = extensions

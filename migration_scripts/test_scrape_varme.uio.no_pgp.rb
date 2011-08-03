@@ -15,7 +15,7 @@ class LinkFixerTest < Test::Unit::TestCase
     # @migration.vortex.create_path("/konv/pgp/")
   end
 
-  def zzz_test_title
+  def test_title
     # First, and only, paragaph should be used as introduction
     @migration.debug = false
     @migration.migrate_article("index.php?option=com_content&task=view&id=519&Itemid=32.html")
@@ -31,7 +31,7 @@ class LinkFixerTest < Test::Unit::TestCase
     assert @migration.extract_introduction == ""
   end
 
-  def extract_filepath
+  def zzz_test_extract_filepath
     @migration.debug = false # true
     @migration.migrate_article("index.php?option=com_content&task=view&id=604&Itemid=123.html")
     assert @migration.extract_filename =~/^\/people/
@@ -59,11 +59,21 @@ class LinkFixerTest < Test::Unit::TestCase
     @migration.migrate_article("index.php?option=com_content&task=view&id=352&Itemid=360&limit=1&limitstart=1.html")
   end
 
-  def test_missing_path
+  def zzz_test_missing_path
     @migration.debug =   true
     @migration.dry_run = false
     @migration.migrate_article("index.php?option=com_content&task=view&id=77&Itemid=123.html")
+  end
 
+  # Each page is download 4 times by 'wget'. Make sure the right ones is used:
+  def test_avoid_duplicates
+    @migration.debug =   true
+    @migration.dry_run = true
+
+    @migration.is_article?(@migration.html_dir + "index.php?option=com_content&task=view&id=111&Itemid=32.html") == true
+    @migration.is_article?(@migration.html_dir + "index.php?option=com_content&task=view&id=111&Itemid=300.html") == false
+    # @migration.is_article?(@migration.html_dir + "index2.php?option=com_content&task=view&id=111&pop=1&page=0&Itemid=300.html") == false
+    # @migration.is_article?(@migration.html_dir + "index2.php?option=com_content&task=view&id=111&pop=1&page=0&Itemid=32.html") == false
   end
 
 end

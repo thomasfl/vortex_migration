@@ -15,9 +15,11 @@ class SummerSchoolMigration < StaticSiteMigration
 
   # Migrate all files with .html extension as articles i vortex
   def is_article?(filename)
-    if(filename[/index.php.*\.html$/] )then
+    if(filename[/index2.php/])
+      return false
+    end
+    if(filename[/\.html$/] )then
       content = open(filename).read
-      # puts "Source    : " + content # .gsub(/\s+/,' ')# [0..80]
       doc = Nokogiri::HTML(content)
       return (doc.css(".contentheading").first and doc.css(".contentpaneopen").size > 0 and doc.css("#path>.pathway").size > 0)
     end
@@ -37,9 +39,9 @@ class SummerSchoolMigration < StaticSiteMigration
     breadcrumb = ""
 
     # Detect the frontpage /corner case
-    if(@doc.css("#path>.pathway>.pathway").size > 0 and @doc.css("#path>.pathway>.pathway a").size == 0)then
-      return path + "index.html"
-    end
+    # if(@doc.css("#path>.pathway>.pathway").size > 0 and @doc.css("#path>.pathway>.pathway a").size == 0)then
+    #   return path + "index.html"
+    # end
 
     @doc.css("#path>.pathway>.pathway a")[1..100].each do |element|
       breadcrumb = breadcrumb + element.text + ";"
@@ -48,14 +50,26 @@ class SummerSchoolMigration < StaticSiteMigration
 
     # Add last element of breadcrumb to the generated filepath
     breadcrumb_html = @doc.css("#path>.pathway>.pathway").inner_html
+    # puts "DEBUG1: '#{breadcrumb_html}'"
     breadcrumb_html = iso2utf(breadcrumb_html)
 
     last_breadcrumb_element = breadcrumb_html[/<img[^>]*>([^<]*)$/,1].strip
+    # puts "DEBUG2: '#{last_breadcrumb_element}'"
     last_breadcrumb_element = Vortex::StringUtils.create_filename(last_breadcrumb_element)
+
     title = Vortex::StringUtils.create_filename(extract_title.to_s)
-    if(not(last_breadcrumb_element == title))
-      path = path + last_breadcrumb_element + '/'
-      breadcrumb = breadcrumb + extract_title.to_s
+    path = path + last_breadcrumb_element + '/'
+    breadcrumb = breadcrumb + extract_title.to_s
+
+    if(last_breadcrumb_element == title)
+      filename = path + "index.html"
+    else
+      filename = path + title + ".html"
+    end
+
+    if(path == "/")
+      puts "ERROR: No path!"
+      exit
     end
 
     # Log breadcrumb and filepath to file so we can fix foldernames afterwards
@@ -67,12 +81,7 @@ class SummerSchoolMigration < StaticSiteMigration
       puts "Breadrcrum: " + breadcrumb.gsub(";"," > ")
     end
 
-    if(path == "/")
-      puts "ERROR: No path!"
-      exit
-    end
-
-    return path + title + ".html"
+    return filename
   end
 
   # Perform checks before publishing
@@ -162,11 +171,15 @@ if __FILE__ == $0 then
   src_dir = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
   webdav_destination = 'https://www-dav.mn.uio.no/konv/pgp/'
   migration = SummerSchoolMigration.new(src_dir,webdav_destination)
-  # Optional settings:
   migration.logfile        = 'pgp_migration_log.txt'
   migration.errors_logfile = 'pgp_migration_error_log.txt'
-  migration.debug = true
-  # migration.dry_run = true
-  migration.migrate_article("index.php?option=com_content&task=view&id=519&Itemid=32.html")
-  migration.run
+
+  migration.generate_report
+  migration.generate_migration_html_report
+  # Optional settings:
+  # migration.debug = true
+  # migration.dry_run = false # true
+
+  # migration.migrate_article("index.php?option=com_content&task=view&id=77&Itemid=123.html")
+  # migration.run
 end

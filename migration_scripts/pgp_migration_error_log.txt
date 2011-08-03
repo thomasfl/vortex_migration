@@ -31,4 +31,3 @@ file-not-found:/Users/thomasfl/workspace/physics_geological_processes/site/varme
 file-not-found:/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/images/stories/Hafver_Abstract.pdf
 file-not-found:/Users/thomasfl/workspace/physics_geological_processes/site/%7Ejoachma/
 file-not-found:/Users/thomasfl/workspace/physics_geological_processes/site/%7Emaloy/
-file-not-found:/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/pdf/James%20Connolly%20Workshop.pdf
