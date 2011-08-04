@@ -131,7 +131,7 @@ class StaticSiteMigration
     #  doc = Nokogiri::HTML(body,nil, @encoding)
     #else
 
-      doc = Nokogiri::HTML(body)
+    doc = Nokogiri::HTML(body)
     #end
 
     # Upload images to vortex server:
@@ -155,11 +155,17 @@ class StaticSiteMigration
       href = link.attr("href")
       file_uri = href.to_s.sub(/(#|\?).*/,'')
 
-      # TODO: Should use not(is_article?(...) to detect if it's document or not.
-      if(href and not(file_uri[/html$/]) and not(file_uri[/^http/]) and not(href[/^mailto:/]))then
+      if(download_linked_file?(href))
         upload_file(file_uri, html_filename, destination_path)
         basename = Pathname.new(file_uri).basename.to_s
         link.set_attribute("href",basename)
+      else
+        internal_link = href_is_local_link(href)
+        if(internal_link)
+          link.set_attribute("href",internal_link)
+        else
+          puts "Warning   : External link " + href if(@debug)
+        end
       end
     end
 
@@ -169,6 +175,27 @@ class StaticSiteMigration
       return doc.to_s
     end
 
+  end
+
+
+  # Returns false or new url. De overload.
+  def href_is_local_link(href)
+    return false
+  end
+
+  # Used to check if an url in link is a file that should be downloaded.
+  # Should be overloaded if there is special rules for site
+  def download_linked_file?(href)
+    file_uri = href.to_s.sub(/(#|\?).*/,'')
+    if(href == nil or href[/^mailto:/])
+      return false
+    end
+
+    if(file_uri[/html$/])
+      return false
+    end
+
+    return true
   end
 
   def make_links_relative(body, destination_path, html_filename)

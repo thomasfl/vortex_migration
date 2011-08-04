@@ -4,7 +4,7 @@ require '../lib/vortex_static_site_migration'
 # Custom code for migrating the joomla site varme.uio.no/pgp site to vortex:
 class SummerSchoolMigration < StaticSiteMigration
 
-  # Perform setup
+  # Run this before we start migration
   def setup
     # Set up logfile for breadcrumb
     @breadcrumb_log = "varme.uio.no_pgp_breadcrumbs.log"
@@ -32,9 +32,13 @@ class SummerSchoolMigration < StaticSiteMigration
     return converter.iconv(string)
   end
 
+  def extract_filename
+    return extract_filename2(@doc)
+  end
+
   # Returns filename with path.
   # Ex. /methods/fieldwork/geo-patterns.html
-  def extract_filename
+  def extract_filename2(doc)
     path = "/"
     breadcrumb = ""
 
@@ -43,13 +47,13 @@ class SummerSchoolMigration < StaticSiteMigration
     #   return path + "index.html"
     # end
 
-    @doc.css("#path>.pathway>.pathway a")[1..100].each do |element|
+    doc.css("#path>.pathway>.pathway a")[1..100].each do |element|
       breadcrumb = breadcrumb + element.text + ";"
       path = path + Vortex::StringUtils.create_filename(element.text) + "/"
     end
 
     # Add last element of breadcrumb to the generated filepath
-    breadcrumb_html = @doc.css("#path>.pathway>.pathway").inner_html
+    breadcrumb_html = doc.css("#path>.pathway>.pathway").inner_html
     # puts "DEBUG1: '#{breadcrumb_html}'"
     breadcrumb_html = iso2utf(breadcrumb_html)
 
@@ -131,7 +135,8 @@ class SummerSchoolMigration < StaticSiteMigration
     # Clean up html
     introduction = introduction.gsub(/<.?font>/,' ').strip.gsub(/<br>$/,'')
 
-    introduction = remove_special_chars(introduction)
+    introduction = iso2utf(introduction)
+    # introduction = remove_special_chars(introduction)
     return introduction
   end
 
@@ -144,7 +149,9 @@ class SummerSchoolMigration < StaticSiteMigration
     string = string.gsub("Æ","&Aelig;")
     string = string.gsub("Ø","&Oslash;")
     string = string.gsub("Å","&Aring;")
-    string = Iconv.iconv('ascii//ignore//translit', 'utf-8', string).to_s
+
+    string = transliterate_utf8(string)
+
     string = string.gsub(/'/, "\"") # Fnutter gir "not valid xml error"
     string = string.gsub("&nbsp;", " ") # &nbsp; gir også "not valid xml error"
     string = string.gsub("", "-") # Tankestrek til minustegn
@@ -160,9 +167,44 @@ class SummerSchoolMigration < StaticSiteMigration
     return string
   end
 
+
+  def transliterate_utf8(string)
+    Iconv.iconv('ascii//ignore//translit', 'utf-8', string).to_s
+  end
+
   def extract_body
     body = @doc.css(".contentpaneopen[2] td").children[@body_element_index..1000].to_s.strip
-    body = remove_special_chars(body)
+    body = iso2utf(body)
+    body = body.gsub(/\s+/,' ')
+    # body = remove_special_chars(body)
+  end
+
+
+  # Returns false or new url
+  def href_is_local_link(href)
+    file_uri = href.to_s.sub(/(#|\?).*/,'')
+
+    if( (href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/]) and  file_uri[/\.php$/])
+      # Open the link and see if we can extract filename from its breadcrumb
+      doc = Nokogiri::HTML(open(href))
+      filename = extract_filename2(doc)
+      return @vortex_path + filename.gsub(/^\//,'')
+    end
+    return nil
+  end
+
+  def download_linked_file?(href)
+    file_uri = href.to_s.sub(/(#|\?).*/,'')
+    # puts "DEBUG: file_uri: " + file_uri
+    if(file_uri[/\.html$/] or file_uri[/\.php$/])
+      return false
+    end
+
+    if(not(super(href)) and ( href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/] ))
+      return true
+    end
+
+    return super(href)
   end
 
 end
@@ -171,15 +213,19 @@ if __FILE__ == $0 then
   src_dir = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
   webdav_destination = 'https://www-dav.mn.uio.no/konv/pgp/'
   migration = SummerSchoolMigration.new(src_dir,webdav_destination)
+
+  # Optional settings:
   migration.logfile        = 'pgp_migration_log.txt'
   migration.errors_logfile = 'pgp_migration_error_log.txt'
 
-  migration.generate_report
-  migration.generate_migration_html_report
-  # Optional settings:
-  # migration.debug = true
-  # migration.dry_run = false # true
-
+  migration.debug = true
+  migration.dry_run = false # true
   # migration.migrate_article("index.php?option=com_content&task=view&id=77&Itemid=123.html")
+  # PDF files isn't downloaded:
+  migration.migrate_article("index.php?option=com_content&task=view&id=255&Itemid=298.html")
   # migration.run
+
+
+  # migration.generate_report
+  # migration.generate_migration_html_report
 end
