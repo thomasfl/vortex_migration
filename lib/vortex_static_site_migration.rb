@@ -10,6 +10,9 @@ require 'iconv'
 require 'pry' # binding.pry => escapes into irb like shell
 $LOAD_PATH.unshift Pathname.new(File.expand_path( __FILE__ )).parent.to_s
 require 'vortex_migration_report'
+require "net/http"
+require "uri"
+
 
 class StaticSiteMigration
 
@@ -31,7 +34,7 @@ class StaticSiteMigration
     @dirty_errors_logfile = false
     @dry_run = false
     @debug = true
-
+    @document_count = 0
     setup
   end
 
@@ -62,6 +65,15 @@ class StaticSiteMigration
   # Methods not to be overloaded
   #
   #--------------------------------------
+
+  # Example "text/html; charset=iso-8859-1"
+  def content_type(url)
+    uri = URI.parse(url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    request = Net::HTTP::Get.new(uri.request_uri)
+    response = http.request(request)
+    return response.get_fields('Content-Type')
+  end
 
   # Log uploads
   def log_upload(filetype,local_pathname,pathname)
@@ -109,8 +121,18 @@ class StaticSiteMigration
     basename = Pathname.new(file_uri).basename.to_s
     destination_filename = destination_path + '/' + basename
 
+    content = nil
     begin
-      content = open(filename).read
+      # puts "Filename => " + filename.to_s
+      timeout(15) do # Makes open-uri timeout after 10 seconds.
+        begin
+          content = open(filename).read
+        rescue
+          puts "Error: Timeout: " + filename
+          log_error('timed-out',filename)
+          return nil
+        end
+      end
     rescue
       puts "Logging error: File not found : " + filename if(@debug)
       log_error('file-not-found',filename)
@@ -120,32 +142,46 @@ class StaticSiteMigration
       puts "  Copying : " + filename if(@debug)
       puts "  To      : " + destination_filename if(@debug)
       @vortex.put_string(destination_filename, content)
-      # log_upload('file', destination_filename)
       log_upload('file', filename.sub(@html_dir,''), destination_filename.sub(@vortex_path,''))
     end
   end
 
   # Download images and files (pdf, ppt etc) and return updated html.
   def migrate_files(body, destination_path, html_filename)
-    #if(@encoding)
-    #  doc = Nokogiri::HTML(body,nil, @encoding)
-    #else
-
-    doc = Nokogiri::HTML(body)
-    #end
+    if(@encoding)
+      doc = Nokogiri::HTML(body,nil, @encoding)
+    else
+      doc = Nokogiri::HTML(body)
+    end
 
     # Upload images to vortex server:
     doc.css("img").each do |image|
       file_uri = image.attr("src")
-      if(file_uri[/^http/])then
-        upload_file(file_uri, html_filename, destination_path)
-      else
-        if(File.exists?(@html_path.to_s + file_uri))
-          upload_file(@html_path.to_s + file_uri, html_filename, destination_path)
+
+      # Handle relative url's like '../../images/headinglogo.gif':
+      if(file_uri[/^\//])
+        file_uri = @html_dir + file_uri
+      elsif(not(file_uri[/^\//]) and not(file_uri[/^http/]))then
+        file_uri = Pathname.new(html_filename).parent + file_uri
+      end
+
+      uri = nil
+      begin
+        uri = URI.parse(file_uri.to_s)
+      rescue
+        puts "Logging error: Unparseable link : " + file_uri
+        log_error('unparseable-link-in-file',file_uri)
+      end
+
+      if(uri and migrate_linked_file?(uri))
+        if(File.exists?(uri.to_s))
+          upload_file(uri.to_s, html_filename, destination_path)
         else
-          throw "File not found: " + file_uri
+          puts "Logging error: File not found : " + file_uri if(@debug)
+          log_error('file-not-found',file_uri)
         end
       end
+
       basename = Pathname.new(file_uri).basename.to_s
       image.set_attribute("src",basename)
     end
@@ -153,19 +189,23 @@ class StaticSiteMigration
     # Upload files, everything that's not a document, to vortex server:
     doc.css("a").each do |link|
       href = link.attr("href")
-      file_uri = href.to_s.sub(/(#|\?).*/,'')
+      if(href and not(href[/^\#/]))
+        file_uri = href.to_s.sub(/(#|\?).*/,'')
 
-      if(download_linked_file?(href))
-        upload_file(file_uri, html_filename, destination_path)
-        basename = Pathname.new(file_uri).basename.to_s
-        link.set_attribute("href",basename)
-      else
-        internal_link = href_is_local_link(href)
-        if(internal_link)
-          link.set_attribute("href",internal_link)
-        else
-          puts "Warning   : External link " + href if(@debug)
+        uri = nil
+        begin
+          uri = URI.parse(href)
+        rescue
+          puts "Logging error: Unparseable link : " + href
+          log_error('unparseable-link-in-file',file_uri)
         end
+
+        if(uri and migrate_linked_file?(uri))
+          upload_file(file_uri, html_filename, destination_path)
+          basename = Pathname.new(file_uri).basename.to_s
+          link.set_attribute("href",basename)
+        end
+
       end
     end
 
@@ -178,20 +218,18 @@ class StaticSiteMigration
   end
 
 
-  # Returns false or new url. De overload.
-  def href_is_local_link(href)
-    return false
-  end
-
   # Used to check if an url in link is a file that should be downloaded.
   # Should be overloaded if there is special rules for site
-  def download_linked_file?(href)
+  def migrate_linked_file?(uri) # href)
+    href = uri.to_s
     file_uri = href.to_s.sub(/(#|\?).*/,'')
+
     if(href == nil or href[/^mailto:/])
       return false
     end
 
-    if(file_uri[/html$/])
+    if(is_article?(file_uri))
+    # if(file_uri[/html$/])
       return false
     end
 
@@ -207,11 +245,16 @@ class StaticSiteMigration
 
     doc.css('a').each do |link|
       href = link['href']
-      # TODO Check if href equals http://source-site/
-
-      if(href and href[/^\//] )then
+      uri = nil
+      begin
+        uri = URI.parse(href.to_s)
+      rescue
+        puts "Logging error: Unparseable link : " + href.to_s
+        log_error('unparseable-link-in-file',destination_path)
+      end
+      if(uri and href and href[/^\//] )then
         pathname_from = Pathname.new( destination_path )
-        pathname_to   = Pathname.new( URI.parse(href.to_s).path.to_s )
+        pathname_to   = Pathname.new( uri.path.to_s )
         new_href = pathname_to.relative_path_from(pathname_from.parent).to_s
         link.set_attribute('href',new_href)
         puts "Update url : " + href + " => " + new_href
@@ -235,6 +278,7 @@ class StaticSiteMigration
   def publish_article(html_filename, title, introduction, related, body, new_filename)
     if(new_filename == "")
       destination_filename = @vortex_path + html_filename.sub(@html_dir,'')
+      destination_filename = destination_filename.gsub(/\/\/*/,'/')
       destination_path = Pathname.new(destination_filename).parent.to_s
     else
       destination_filename = @vortex_path + new_filename
@@ -305,7 +349,7 @@ class StaticSiteMigration
 
     @vortex.proppatch(destination_filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
     if(@debug)
-      puts "Published: " + destination_filename
+      puts "Published : " + destination_filename
     end
   end
 
@@ -325,8 +369,16 @@ class StaticSiteMigration
       @doc = Nokogiri::HTML(content)
     end
 
+    # puts @doc.to_s
+
+    if(@doc.css('meta[http-equiv="refresh"]').size > 0)
+      puts "Warning   : Ignoring redirect to '" + @doc.css('meta[http-equiv="refresh"]').to_s + "'" if(@debug)
+      log_error("redirect",html_filename)
+      return
+    end
+
     title = extract_title
-    introduction = extract_introduction
+    introduction = extract_introduction.strip
     begin
       related = extract_related_content
     rescue
@@ -337,18 +389,20 @@ class StaticSiteMigration
     new_filename = extract_filename.to_s
 
     if(@debug)
+      puts "Count     : " + @document_count.to_s
+      @document_count = @document_count + 1
       puts "Title     : " + title.to_s
       puts "Intro     : " + introduction.to_s #[0..140]
-      puts "Related   : " + related.to_s[0..140]
+      puts "Related   : " + related.to_s[0..140] if(related.to_s != "")
       puts "Body      : " + body.to_s[0..140]
-      puts "Filename  : " + new_filename
+      puts "Filename  : " + new_filename if(new_filename != "")
     end
 
     if(not(@dry_run))then
       publish_article(html_filename, title, introduction, related, body, new_filename)
     end
     if(@debug)
-      puts "___________________________________________________________"
+      puts "_" * 80
     end
   end
 
@@ -428,7 +482,8 @@ class StaticSiteMigration
 
     foldername = @vortex_path + 'nettpublisering/ikke_migrert_innhold/'
     unpublished_files.each do |filename|
-      local_filename = (@html_path + filename).to_s
+      local_filename = @html_path.to_s + filename
+      local_filenamme = local_filename.gsub(/\/\/*/,'/')
       remote_filename = foldername + filename
       remote_path = Pathname.new(remote_filename).parent.to_s
       content = open(local_filename).read

@@ -2,7 +2,7 @@
 require 'scrape_varme.uio.no_pgp'
 require 'test/unit'
 
-class LinkFixerTest < Test::Unit::TestCase
+class MigratePGP < Test::Unit::TestCase
 
   def setup
     src_dir  = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
@@ -17,6 +17,35 @@ class LinkFixerTest < Test::Unit::TestCase
     # @migration.vortex.delete("/konv/pgp/")
     # @migration.vortex.create_path("/konv/pgp/")
   end
+
+  def test_crash2
+    @migration.dry_run = false
+    @migration.migrate_article("index.php?option=com_content&task=view&id=581&Itemid=32.html")
+    # @migration.migrate_article("index.php?option=com_content&task=view&id=27&Itemid=32.html")
+  end
+
+end
+
+class DisabledTezzzzts
+
+
+  def test_chrash
+    @migration.dry_run = false
+    @migration.migrate_article("/tmp/pgp/varme.uio.no/pgp/index.php?option=com_content&task=view&id=496&Itemid=68.html")
+  end
+
+  def test_duplicate_content
+    @migration.vortex.delete("/konv/pgp_test/home/about-pgp/about-pgp-physics-of-geological-processes-geologiske-prosessers-fysikk.html")
+    @migration.dry_run = false
+    @migration.migrate_article("index.php?option=com_content&task=view&id=14&Itemid=243.html")
+
+    # puts "Title : " + @migration.extract_title
+    # puts "-------"
+    # puts "Intro : " + @migration.extract_introduction
+    # puts "-------"
+    puts @migration.extract_body
+  end
+
 
   def test_title
     # First, and only, paragaph should be used as introduction

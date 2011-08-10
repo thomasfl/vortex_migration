@@ -221,10 +221,10 @@ class StaticSiteMigration
       count = extensions[extension][0].to_i
       filesize = extensions[extension][1].to_i
       extensions[extension][0] = count + 1
-      if(not(File.exists?(@html_path + filename)))
+      if(not(File.exists?(@html_path.to_s + filename)))
         throw "Unknown file : '" + @html_path + filename + "' =>" + info.to_s
       end
-      extensions[extension][1] = filesize + File.size(@html_path + filename)
+      extensions[extension][1] = filesize + File.size(@html_path.to_s + filename)
     end
     report_data['extensions'] = extensions
 
@@ -240,7 +240,7 @@ class StaticSiteMigration
         count = unpublished_files_extensions[extension][0].to_i
         filesize = unpublished_files_extensions[extension][1].to_i
         unpublished_files_extensions[extension][0] = count + 1
-        unpublished_files_extensions[extension][1] = filesize + File.size(@html_path + local_filename)
+        unpublished_files_extensions[extension][1] = filesize + File.size(@html_path.to_s + local_filename)
       end
     end
     report_data['unpublished_files'] = unpublished_files

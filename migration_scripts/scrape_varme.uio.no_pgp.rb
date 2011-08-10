@@ -36,6 +36,13 @@ class SummerSchoolMigration < StaticSiteMigration
     return extract_filename2(@doc)
   end
 
+  # TODO Bytt ut extract_filename() med en enklere metode for å ekstrahere brødsmulesti:
+  def extract_breadcrumb
+    # ex:
+    #  return ["Home","Projects","Internal"]
+  end
+
+
   # Returns filename with path.
   # Ex. /methods/fieldwork/geo-patterns.html
   def extract_filename2(doc)
@@ -47,7 +54,18 @@ class SummerSchoolMigration < StaticSiteMigration
     #   return path + "index.html"
     # end
 
-    doc.css("#path>.pathway>.pathway a")[1..100].each do |element|
+    # binding.pry
+
+    breadcrumb_elements = doc.css("#path>.pathway>.pathway a")
+    if(breadcrumb_elements[1..100] == nil) # Dirty hack to fix a bug really originated elsewhere.
+      breadcrumb_elements = @doc.css("#path>.pathway>.pathway a")
+    end
+
+    if(breadcrumb_elements[1..100] == nil)
+      binding.pry
+    end
+
+    breadcrumb_elements[1..100].each do |element|
       breadcrumb = breadcrumb + element.text + ";"
       path = path + Vortex::StringUtils.create_filename(element.text) + "/"
     end
@@ -57,7 +75,7 @@ class SummerSchoolMigration < StaticSiteMigration
     # puts "DEBUG1: '#{breadcrumb_html}'"
     breadcrumb_html = iso2utf(breadcrumb_html)
 
-    last_breadcrumb_element = breadcrumb_html[/<img[^>]*>([^<]*)$/,1].strip
+    last_breadcrumb_element = breadcrumb_html[/<img[^>]*>([^<]*)$/,1].to_s.strip
     # puts "DEBUG2: '#{last_breadcrumb_element}'"
     last_breadcrumb_element = Vortex::StringUtils.create_filename(last_breadcrumb_element)
 
@@ -121,8 +139,10 @@ class SummerSchoolMigration < StaticSiteMigration
     end
 
     # Next step is to extract the first paragraph
+    @remove_first_paragraph = false
     if(introduction == "")
       introduction = @doc.css(".contentpaneopen[2] td p[1]").inner_html
+      @remove_first_paragraph = true # Tell extract_body to remove something...
       @body_element_index = 2
     end
 
@@ -133,11 +153,29 @@ class SummerSchoolMigration < StaticSiteMigration
     end
 
     # Clean up html
-    introduction = introduction.gsub(/<.?font>/,' ').strip.gsub(/<br>$/,'')
+    introduction = introduction.gsub(/<.?font>/,' ').strip.gsub(/<br.?>$/,'')
 
     introduction = iso2utf(introduction)
     # introduction = remove_special_chars(introduction)
     return introduction
+  end
+
+  def extract_body
+
+    if(@remove_first_paragraph)
+      content = @doc.to_s
+      # content = transliterate_utf8(content)
+      doc = Nokogiri::HTML( content)
+      doc.css(".contentpaneopen[2] td p[1]").remove
+      body = doc.css(".contentpaneopen").last.css("td").first.inner_html
+
+    else
+      body = @doc.css(".contentpaneopen[2] td").children[@body_element_index..1000].to_s.strip
+    end
+    body = iso2utf(body)
+    body = body.gsub(/\s+/,' ')
+    # body = remove_special_chars(body)
+    return body
   end
 
   # Når alle andre metoder for å konvertere å parsere iso8859 til utf-8 feiler,
@@ -172,19 +210,12 @@ class SummerSchoolMigration < StaticSiteMigration
     Iconv.iconv('ascii//ignore//translit', 'utf-8', string).to_s
   end
 
-  def extract_body
-    body = @doc.css(".contentpaneopen[2] td").children[@body_element_index..1000].to_s.strip
-    body = iso2utf(body)
-    body = body.gsub(/\s+/,' ')
-    # body = remove_special_chars(body)
-  end
-
 
   # Returns false or new url
   def href_is_local_link(href)
     file_uri = href.to_s.sub(/(#|\?).*/,'')
 
-    if( (href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/]) and  file_uri[/\.php$/])
+    if( href and (href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/]) and  file_uri[/\.php$/])
       # Open the link and see if we can extract filename from its breadcrumb
       doc = Nokogiri::HTML(open(href))
       filename = extract_filename2(doc)
@@ -200,17 +231,19 @@ class SummerSchoolMigration < StaticSiteMigration
       return false
     end
 
-    if(not(super(href)) and ( href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/] ))
+    # puts "DEBUGGG2002" + href.to_s
+    if(href and ( href[/^http:\/\/www.fys.uio.no\/pgp/] or href[/^http:\/\/varme.uio.no\/pgp/] ))
       return true
     end
-
-    return super(href)
+    return false
+    # return super(href)
   end
 
 end
 
 if __FILE__ == $0 then
-  src_dir = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
+  # src_dir = '/Users/thomasfl/workspace/physics_geological_processes/site/varme.uio.no/pgp/'
+  src_dir = '/tmp/pgp/varme.uio.no/pgp/'
   webdav_destination = 'https://www-dav.mn.uio.no/konv/pgp/'
   migration = SummerSchoolMigration.new(src_dir,webdav_destination)
 
@@ -222,8 +255,8 @@ if __FILE__ == $0 then
   migration.dry_run = false # true
   # migration.migrate_article("index.php?option=com_content&task=view&id=77&Itemid=123.html")
   # PDF files isn't downloaded:
-  migration.migrate_article("index.php?option=com_content&task=view&id=255&Itemid=298.html")
-  # migration.run
+  # migration.migrate_article("index.php?option=com_content&task=view&id=255&Itemid=298.html")
+  migration.run
 
 
   # migration.generate_report
