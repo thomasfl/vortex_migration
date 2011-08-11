@@ -24,6 +24,22 @@ class MigrateCMATest < Test::Unit::TestCase
     @migration.debug = false
   end
 
+  should "extract title" do
+    # @migration.dry_run = true
+    @migration.debug = true
+
+    article_file = 'openpositions/index.html'
+    @migration.migrate_article(article_file)
+    assert @migration.extract_title == "OPEN POSITIONS"
+
+    article_file = 'researchplan/goals.html'
+    @migration.migrate_article(article_file)
+    puts "title: '" + @migration.extract_title + "'"
+
+  end
+
+# end;def should(string, &block)end;class DisabledTests
+
   should "not migrate graphic decorations" do
     # @migration.debug = true
     article_file = 'openpositions/index.html'
@@ -40,8 +56,6 @@ class MigrateCMATest < Test::Unit::TestCase
     article_file = 'people/person/torsteinnilssen.html'
     @migration.migrate_article(article_file)
   end
-
-# end;def should(string, &block)end;class DisabledTests
 
 
   should "handle redirects in html head" do
