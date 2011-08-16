@@ -108,15 +108,12 @@ class StaticSiteMigration
 
   # Copy file with file_uri to vortex server
   def upload_file(file_uri, html_filename, destination_path)
-
-    # binding.pry
     if(file_uri[/^http/])
-      # TODO Sjekke at filen ligger p√• samme server eller annen server
+      # TODO Sjekke at filen ligger pÅÂ samme server eller annen server
       filename = file_uri
     else
       filename = (Pathname.new(html_filename).parent + Pathname.new(file_uri)).to_s
     end
-
 
     basename = Pathname.new(file_uri).basename.to_s
     destination_filename = destination_path + '/' + basename
@@ -454,7 +451,7 @@ class StaticSiteMigration
       puts "Creating report folder : " + foldername
       @vortex.create_path(foldername)
       @vortex.proppatch(foldername,
-              '<v:userTitle xmlns:v="vrtx">Rapporter for arbeidet med kvalitet p√• nett</v:userTitle>')
+              '<v:userTitle xmlns:v="vrtx">Rapporter for arbeidet med kvalitet pÅÂ nett</v:userTitle>')
       @vortex.proppatch(foldername,
               '<v:navigationTitle xmlns:v="vrtx">Rapporter</v:navigationTitle>')
       @vortex.proppatch(foldername,
