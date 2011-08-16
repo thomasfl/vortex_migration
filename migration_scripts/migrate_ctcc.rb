@@ -37,6 +37,7 @@ class CTCCMigration < StaticSiteMigration
 
 end
 
+# Only run when invoced as a script to make it testable
 if __FILE__ == $0 then
   # system("cd /tmp;wget --mirror –p --html-extension –-convert-links --force-directories  -e robots=off -P . http://www.ctcc.uio.no/index.html")
   src_dir = '/tmp/www.ctcc.uio.no'
@@ -49,5 +50,4 @@ if __FILE__ == $0 then
   # migration.transfer_unused_files
   # migration.generate_report
   # migration.generate_migration_html_report
-
 end
