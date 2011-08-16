@@ -23,16 +23,29 @@ class MigrateCancerbiomedTest < Test::Unit::TestCase
   end
 
   should "get document tree" do
-    @migration.debug = true
+    @migration.debug = false # true
+    @migration.dry_run = true
 
-    article_url = 'groups/' #     article_url = 'groups/hs/'
+    article_url = 'groups/'
     @migration.migrate_article(article_url)
+    assert @migration.get_children == ["/groups/hs/", "/groups/hd/", "/groups/kl/", "/groups/rl/", "/groups/aw/", "/groups/ks/", "/groups/es/"]
 
+    article_url = 'groups/hs/'
+    @migration.migrate_article(article_url)
+    @migration.get_children == ["/groups/hs/projects/", "/groups/hs/group-members/", "/groups/hs/key-achievements/", "/groups/hs/publications/"]
+
+    article_url = 'groups/hs/projects/'
+    @migration.migrate_article(article_url)
     require 'pp'
-    pp @migration.get_children
+    assert @migration.get_children == ["/groups/hs/projects/ucem/", "/groups/hs/projects/psd/", "/groups/hs/projects/cdc/",
+                                       "/groups/hs/projects/mapdcd/"]
+
+    article_url = 'groups/hs/projects/ucem/'
+    @migration.migrate_article(article_url)
+    assert @migration.get_children == [] # Bottom of navigation tree
   end
 
-end;def should(string, &block)end;class DisabledTests
+# end;def should(string, &block)end;class DisabledTests
 
   should "migrate files from same server" do
     @migration.debug = true

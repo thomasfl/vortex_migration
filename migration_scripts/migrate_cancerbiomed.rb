@@ -131,7 +131,7 @@ class SiteMigration
       content = nil
       if(uri and migrate_linked_file?(uri))
         uri = URI.join(@src_hosts[0],uri)
-        puts "   Fetching : " + uri.to_s
+        # puts "   Fetching : " + uri.to_s
         timeout(15) do # Makes open-uri timeout after 10 seconds.
           begin
             content = open(uri.to_s).read
@@ -316,7 +316,10 @@ class CancerbiomedMigration < DynamicSiteMigration # StaticSiteMigration
   end
 
   def extract_introduction
-    @doc.css(".subContent h2").first.inner_html
+    # binding.pry
+    if(@doc.css(".subContent h2").first)
+        return @doc.css(".subContent h2").first.inner_html
+    end
   end
 
   def extract_body
@@ -327,11 +330,9 @@ class CancerbiomedMigration < DynamicSiteMigration # StaticSiteMigration
     end
 
     @doc.css(".subContent p:not(.m2)").to_s
-    # binding.pry
   end
 
   def extract_filename
-    # binding.pry
     path = URI.parse(@doc_url).path  #TOOD denne variablen er ikke global lenger...
     if(path[/\/$/])
       path = path + "index.html"
@@ -353,22 +354,32 @@ class CancerbiomedMigration < DynamicSiteMigration # StaticSiteMigration
   end
 
   # Returns list of relative url's to children documents
+  # TODO: Handle relative links to parent directories like '../parent.html'
   def get_children
-    puts "Get children ==> " + @doc_url
+    # puts "Extracting children from :" + @doc_url
     children = []
-    # binding.pry
-
     if(@doc.css(".m1 a.active").size > 0)
       if(@doc.css(".m2 a.active").size > 0)
-        # binding.pry
+
+        if(@doc.css(".grandkids a").size > 0)
+          # binding.pry
+          if( @doc.css(".m2 .grandkids .active").size > 0)
+            # This is the bottom of the tree
+          else
+            @doc.css(".grandkids a").each do |element|
+              children << URI.parse( element.attr("href") ).path
+            end
+          end
+        else
+          @doc.css(".postKids a").each do |element|
+            children << URI.parse( element.attr("href") ).path
+          end
+        end
+
       else
         @doc.css(".m2 a").each do |element|
-          # binding.pry
-          # TODO: Handle relative links to parent directories like '../parent.html'
-
           children << URI.parse( element.attr("href") ).path
         end
-        return children
       end
     end
 
