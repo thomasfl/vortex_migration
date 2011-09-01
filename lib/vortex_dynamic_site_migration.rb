@@ -34,8 +34,12 @@ class VortexDynamicSiteMigration < VortexSiteMigration
         begin
           @vortex.proppatch( folder, '<v:userTitle xmlns:v="vrtx">' + new_folder_title + '</v:userTitle>')
         rescue
-          puts "Error while proppatching :" + folder + '=> <v:userTitle xmlns:v="vrtx">' + new_folder_title + '</v:userTitle>'
-          binding.pry
+          msg = "Error while proppatching :" +
+            folder + '=> <v:userTitle xmlns:v="vrtx">' +
+            new_folder_title + '</v:userTitle>'
+          puts msg
+          log_error('unable-to-proppatch-title',folder)
+          # binding.pry
         end
       end
 
@@ -45,13 +49,20 @@ class VortexDynamicSiteMigration < VortexSiteMigration
 
   def migrate_article(url)
     @doc_url = @src_url + url
-    @doc = Nokogiri::HTML(open(@doc_url))
+    begin
+      @doc = Nokogiri::HTML(open(@doc_url))
+    rescue => e
+      puts "Error: " + e.inspect + ": " + @doc_url
+      # binding.pry
+      return
+    end
+
     title = extract_title
     introduction = extract_introduction
     body = extract_body
     related = extract_related_content
 
-    new_filename = extract_filename
+    new_filename = extract_filename(@doc_url)
     destination = @dest_url
     destination = destination + new_filename if(new_filename != "")
 

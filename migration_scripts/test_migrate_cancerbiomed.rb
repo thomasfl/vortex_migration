@@ -25,13 +25,98 @@ class MigrateCancerbiomedTest < Test::Unit::TestCase
     @vortex.create_path(@dest_path)
   end
 
+  should "migrate flash animations" do
+    @migration.debug = true
+    @migration.dry_run = false
+
+    @migration.migrate_article('/groups/hd/gallery')
+    binding.pry
+  end
+
+end;def should(string, &block)end;class DisabledTests
+
+  should "not change external links" do
+    @migration.debug = false # true
+    @migration.dry_run = false
+
+    src_folder = '/groups/hs/projects/psd/'
+    @migration.migrate_article(src_folder)
+
+    content = JSON.parse(@vortex.get(@dest_path + src_folder + "index.html"))["properties"]["content"]
+    doc = Nokogiri::HTML(content)
+    link = nil
+    doc.css("a").each do |element|
+      link = element if element.text[/David Bilder/]
+    end
+    assert link.attr("href") == "http://mcb.berkeley.edu/labs/bilder/"
+  end
+
+  should "remove zoom link from images" do
+    # TODO: Get output and check output
+    # @migration.debug = true
+    # @migration.dry_run = false # true
+    # @migration.migrate_article('/groups/hd/projects/3d-imaging/')
+    # binding.pry
+  end
+
+  should "not store scraped pages as html" do
+    # TODO: Skrive en enkel test som migrerer enn artikkel og ser på output
+
+    # @migration.debug = true
+    # @migration.src_url = "http://www.cancerbiomed.net/groups/hd/projects/"
+    # @migration.traverse_tree
+    # binding.pry
+  end
+
+
+
+  should "get document children on all levels" do
+    @migration.debug = false # true
+    @migration.dry_run = true
+
+    @migration.migrate_article('/about-us/midterm-evaluation/')
+    pp @migration.get_children
+
+    @migration.migrate_article('/publications/')
+    assert @migration.get_children == ["/publications/publications-2007/", "/publications/publications-2008/",
+                                       "/publications/publications-2009/", "/publications/publications-2010/",
+                                       "/publications/publications-2011/"]
+
+    @migration.migrate_article('/groups/')
+    assert @migration.get_children == ["/groups/hs/", "/groups/hd/", "/groups/kl/",
+                                       "/groups/rl/", "/groups/aw/", "/groups/ks/", "/groups/es/"]
+
+    @migration.migrate_article('/groups/hs/publications/')
+    assert @migration.get_children == []
+
+    @migration.migrate_article('/groups/hs/')
+    assert @migration.get_children == ["/groups/hs/projects/", "/groups/hs/group-members/",
+                                       "/groups/hs/key-achievements/", "/groups/hs/publications/"]
+
+    article_url = 'groups/hs/projects/'
+    @migration.migrate_article(article_url)
+    assert @migration.get_children == ["/groups/hs/projects/ucem/", "/groups/hs/projects/psd/",
+                                       "/groups/hs/projects/cdc/", "/groups/hs/projects/mapdcd/"]
+
+    @migration.migrate_article('groups/hs/projects/ucem/')
+    assert @migration.get_children == [] # Bottom of navigation tree
+
+    @migration.migrate_article('groups/hs/projects/psd/')
+    assert @migration.get_children == [] # Another leaf node
+
+    @migration.migrate_article('/')
+    assert @migration.get_children == ["/publications", "/groups", "/scientific-programs", "/about-us"]
+  end
+
+
+
   should "scrape the whole page with all images" do
     @migration.debug = true
     @migration.dry_run = false
     @migration.migrate_article('/groups/hs/group-members/')
   end
 
-end;def should(string, &block)end;class DisabledTests
+
 
   should "extract introduction if available" do
     @migration.debug = false
@@ -62,34 +147,6 @@ end;def should(string, &block)end;class DisabledTests
 
 
 
-
-  should "get document children on all levels" do
-    @migration.debug = false # true
-    @migration.dry_run = true
-
-    @migration.migrate_article('/groups/')
-    assert @migration.get_children == ["/groups/hs/", "/groups/hd/", "/groups/kl/", "/groups/rl/", "/groups/aw/", "/groups/ks/", "/groups/es/"]
-
-    @migration.migrate_article('/groups/hs/publications/')
-    assert @migration.get_children == []
-
-    @migration.migrate_article('/groups/hs/')
-    assert @migration.get_children == ["/groups/hs/projects/", "/groups/hs/group-members/", "/groups/hs/key-achievements/", "/groups/hs/publications/"]
-
-    article_url = 'groups/hs/projects/'
-    @migration.migrate_article(article_url)
-    assert @migration.get_children == ["/groups/hs/projects/ucem/", "/groups/hs/projects/psd/", "/groups/hs/projects/cdc/",
-                                       "/groups/hs/projects/mapdcd/"]
-
-    @migration.migrate_article('groups/hs/projects/ucem/')
-    assert @migration.get_children == [] # Bottom of navigation tree
-
-    @migration.migrate_article('groups/hs/projects/psd/')
-    assert @migration.get_children == [] # Another leaf node
-
-    @migration.migrate_article('/')
-    assert @migration.get_children == ["/publications", "/groups", "/scientific-programs", "/about-us"]
-  end
 
   should "extract breadcrumbs" do
     @migration.debug = false

@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
+require 'rubygems'
 require 'vortex_client'
 require 'open-uri'
+require 'pry'
+
+
+# The method String.cleanpath seems to be missing in my version of ruby
+# Since it is not important to us, we can define it:
+class String
+  def cleanpath
+    return self
+  end
+end
 
 # Super class for dynamic and static site migration
 class VortexSiteMigration
@@ -136,9 +147,10 @@ class VortexSiteMigration
       content = nil
       if(uri and migrate_linked_file?(uri))
         uri = URI.join(@src_hosts[0],uri)
-        # puts "   Fetching : " + uri.to_s
-        timeout(15) do # Makes open-uri timeout after 10 seconds.
+
+        timeout(15) do # Make open-uri timeout
           begin
+            puts "Downloading " + uri.to_s if(@debug)
             content = open(uri.to_s).read
           rescue
             puts "Error: Timeout: " + uri.to_s
@@ -151,7 +163,24 @@ class VortexSiteMigration
           destination_filename = destination_path + '/' + basename
           destination_filename = destination_filename.gsub("//","/")
           if(not(@vortex.exists?(destination_filename)))
-            @vortex.put_string(destination_filename, content)
+            begin
+              destination_path = Pathname.new(destination_filename).parent.to_s
+              # puts "Debug: destination path: " + destination_path
+              if(not(@vortex.exists?(destination_path)))
+                begin
+                  @vortex.create_path(destination_path)
+                rescue => e
+                  puts "Unable to create path."
+                  puts e.inspect
+                  binding.pry
+                end
+              end
+              @vortex.put_string(destination_filename, content)
+            rescue => e
+              puts "Destination folder for article does not exists."
+              puts e.inspect
+              binding.pry
+            end
           else
             puts "Warning: File exists " + destination_filename
             log_error('file-exists',destination_filename)
@@ -181,7 +210,14 @@ class VortexSiteMigration
           log_error('unparseable-link-in-file',file_uri)
         end
 
-        if(uri and migrate_linked_file?(uri))
+        if(uri.host and uri.host != URI.parse(@src_url).host)
+          # Do not change links to external sites
+        elsif(isArticle?(uri.path))
+          # The link is to a another migrated page. Determin new destination url and make link relative.
+          link_to_article_path   = URI.parse(@dest_url + extract_filename(uri.path)).path
+          link_from_article_path = URI.parse(@dest_url + extract_filename(@doc_url)).path
+          link.set_attribute("href",  relative_url(link_from_article_path, link_to_article_path))
+        elsif(uri and migrate_linked_file?(uri) )
           upload_file(file_uri, uri, destination_path)
           basename = Pathname.new(file_uri).basename.to_s
           link.set_attribute("href",basename)
@@ -199,17 +235,21 @@ class VortexSiteMigration
   end
 
 
-
-
-
-
-  # publisering
+  ##
+  # Publish an article
   def publish_article(new_filename, title, introduction, related, body)
     destination_filename = @vortex_path + new_filename
     destination_filename = destination_filename.gsub("//","/")
     destination_path = Pathname.new(destination_filename).parent.to_s
 
-    @vortex.create_path(destination_path)
+    begin
+      @vortex.create_path(destination_path)
+    rescue => e
+      puts "Stacktrace: " + e.inspect
+      puts "Error. Could not create: " + destination_path
+      binding.pry
+    end
+
     @vortex.cd(destination_path) # Set path so images, and other files, are placed correctly
 
     body = migrate_files(body, destination_path) # ,@doc_url)
@@ -272,6 +312,13 @@ class VortexSiteMigration
     end
   rescue
     nil
+  end
+
+
+  # Relativize url's
+  def relative_url(from,to)
+    pn = Pathname.new(to)
+    return  pn.relative_path_from(from).to_s.gsub(/^\.\.\//,'')
   end
 
 
