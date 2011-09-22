@@ -1,7 +1,8 @@
+# -*- coding: iso-8859-1 -*-
 require '../lib/vortex_static_site_migration'
 
 # Custom code for migrating the www.stk.uio.no site to vortex:
-class SummerSchoolMigration < StaticSiteMigration
+class STKMigration < StaticSiteMigration
 
   # Migrate all files with .html extension as articles i vortex
   def is_article?(filename)
@@ -9,36 +10,14 @@ class SummerSchoolMigration < StaticSiteMigration
   end
 
   def extract_title
-    @doc.css("#mainContent").children.each do |element|
-      # Find first non-text element
-      if(not(element.name == "text"))then
-        if(element.name.to_s[/^h[1..9]/])then
-          # First element is a h1,h2... tagg:
-          title = element.text
-          element.remove
-          return title
-        else
-          # Use last element of breadcrumb instead:
-          title = @doc.css("#header>h2").text
-          title = title.gsub(/.* :: /,'')
-          return title
-        end
-      end
-    end
-
+    @doc.css("head title").first.inner_html
   end
 
   def extract_introduction
-    first_paragraph = @doc.css("#mainContent>p").first
-    intro = ""
-    if(first_paragraph)then
-      if(first_paragraph.children and first_paragraph.children.first.name = "strong")then
-        first_paragraph = first_paragraph.children.first
-      end
-      intro = first_paragraph.inner_html
-      first_paragraph.remove
-    end
-    return intro
+    introduction = @doc.css('table[width="70%"] table[width="100%"] td').inner_html
+    introduction = introduction.gsub(/<\/?h[^>]*>/,"").strip #removes h1-,h2-,h3- and hr-formatting
+    introduction = introduction.gsub(/\s{2,}/,' ').gsub(/\s{2,}/,' ') #removes two or more adherent spaces
+    return introduction
   end
 
   def extract_related_content
@@ -58,14 +37,23 @@ class SummerSchoolMigration < StaticSiteMigration
   end
 
   def extract_body
-    return @doc.css("#mainContent").first.inner_html
+    content =  @doc.css('table[width="70%"] td').first.to_s
+    # content = content.gsub(/\<!--.*\-->/,'').gsub(/\<!--\n.*\-->/,'')       #removes comments
+    content = content.gsub(/\s{2,}/,' ').gsub(/\s{2,}/,' ') #removes two or more adherent spaces
+    content = content.gsub(/style=\"[^\"]*\"/,"")  #removes inline style
+    content = content.gsub(/<\/?font[^>]*>/,"") #removes font-formatting
+    content = content.gsub(/"/,"'").gsub("\n","").gsub("\r","").gsub("ó","o")
+    return content
   end
 
 end
 
-migration = SummerSchoolMigration.new('/Users/thomasfl/workspace/iss/site/www.summerschool.uio.no/',
-                                      'https://www-dav.vortex-demo.uio.no/konv/iss/')
-migration.logfile        = 'summerschool_migration_log.txt'
-migration.errors_logfile = 'summerschool_migration_error_log.txt'
-# migration.debug = true
-migration.run
+if __FILE__ == $0 then
+  src  = "/tmp/www.stk.uio.no/"
+  dest = 'https://www-dav.vortex-demo.uio.no/konv/stk/'
+  migration = STKMigration.new(src, dest )
+  migration.logfile        = 'stk_migration_log.txt'
+  migration.errors_logfile = 'stk_migration_error_log.txt'
+  # migration.debug = true
+  migration.run
+end
