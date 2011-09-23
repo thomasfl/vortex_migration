@@ -60,6 +60,9 @@ class StaticSiteMigration
   def pre_publish(destination_filename, data)
   end
 
+  def extract_published_date
+  end
+
   #--------------------------------------
   #
   # Methods not to be overloaded
@@ -138,11 +141,21 @@ class StaticSiteMigration
       log_error('file-not-found',filename)
     end
     if(content)then
+      # Downcase path but not destination_filename:
+      arr = destination_filename.split(/\//)
+      destination_filename = arr[0..arr.size-2].join("/").downcase + "/" + arr.last
+
       puts "File uri  : " + file_uri if(@debug)
       puts "  Copying : " + filename if(@debug)
       puts "  To      : " + destination_filename if(@debug)
-      @vortex.put_string(destination_filename, content)
-      log_upload('file', filename.sub(@html_dir,''), destination_filename.sub(@vortex_path,''))
+
+      if(@vortex.exists?(destination_filename))
+        puts "  Warning : " + destination_filename + " exists on server."
+      else
+        # binding.pry
+        @vortex.put_string(destination_filename, content)
+        log_upload('file', filename.sub(@html_dir,''), destination_filename.sub(@vortex_path,''))
+      end
     end
   end
 
@@ -344,12 +357,30 @@ class StaticSiteMigration
       destination_filename = new_filename
     end
 
+    # Downcase path but not destination_filename:
+    arr = destination_filename.split(/\//)
+    destination_filename = arr[0..arr.size-2].join("/").downcase + "/" + arr.last
+
     pre_publish(destination_filename, data)
+
+    puts "Creating  :" + destination_filename
 
     @vortex.put_string(destination_filename, data.to_json)
     log_upload('article', html_filename.sub(@html_path,''), destination_filename.sub(@vortex_path,''))
 
-    @vortex.proppatch(destination_filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
+    # Set published date:
+    published_date = extract_published_date
+    if(published_date)
+      if(not(published_date.class == Time))
+        puts "ERROR. Bad published date"
+        exit
+      end
+        puts "Date      : " + published_date.to_s
+      @vortex.proppatch(destination_filename,'<v:publish-date xmlns:v="vrtx">' + published_date.httpdate.to_s + '</v:publish-date>')
+    else
+      @vortex.proppatch(destination_filename,'<v:publish-date xmlns:v="vrtx">' + Time.now.httpdate.to_s + '</v:publish-date>')
+    end
+
     if(@debug)
       puts "Published : " + destination_filename
     end
